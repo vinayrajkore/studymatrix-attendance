@@ -1,0 +1,1 @@
+ALTER TABLE `student_profiles` ADD `parentMobileNumber` varchar(32) NOT NULL;

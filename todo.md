@@ -1,0 +1,69 @@
+# Project TODO
+
+- [x] Review Android Bluetooth and Wi-Fi scanning constraints for the Expo implementation.
+- [x] Define server data models for users, subjects, timetables, attendance sessions, records, notices, and exports.
+- [x] Apply the ICRE Computer Department brand theme across the application.
+- [x] Generate and configure a unique StudyMatrix Attendance icon and splash asset.
+- [ ] Build welcome, sign-in, and student-registration flows.
+- [x] Implement role-aware navigation for students, faculty administrators, and super-administrators.
+- [ ] Implement the student dashboard, subject attendance summaries, logs, and code-entry flow.
+- [ ] Implement the faculty dashboard, session creation, live roster review, manual overrides, and submission flow.
+- [ ] Implement super-administrator faculty-account controls and department overview.
+- [x] Implement server-backed authentication, role checks, and attendance data persistence.
+- [ ] Implement one-time device-tag setup and Android settings guidance.
+- [x] Implement Android Bluetooth scanning integration or a clearly bounded native-development fallback.
+- [x] Implement attendance-code issuance, expiry, and server-side validation.
+- [x] Implement notices, timetable views, and notification-ready flows.
+- [x] Implement CSV and PDF attendance exports with Android sharing.
+- [x] Configure Android permissions and validate the native build configuration.
+- [x] Add deterministic unit tests for attendance calculations, roles, and code validation.
+- [x] Complete quality checks and prepare the project for Android APK generation.
+- [x] Repair the dependency lockfile and complete Bluetooth Classic native module installation.
+- [ ] Generate the APK through Publish and conduct physical Android Bluetooth discovery testing.
+- [x] Schedule local reminders for students and faculty before upcoming attendance sessions.
+- [x] Add notification-permission guidance and attendance-session notification handling.
+- [x] Add Bluetooth scan loading state, progressive discovery count, cancellation, and actionable errors.
+- [x] Add an administrator form for subject, teacher, class, room, time slot, and reminder timing.
+- [x] Schedule notification reminders from administrator-defined session details.
+- [ ] Produce a self-hosted Node.js/PostgreSQL deployment guide for Render and Railway.
+- [ ] Document Firebase Cloud Messaging setup for personalized attendance-session notifications.
+- [x] Add a role-aware side menu with profile and attendance-history navigation.
+- [x] Add a student attendance-history graph and per-subject profile view.
+- [x] Add administrator subject, room, class, teacher, and timetable information management.
+- [x] Add full-day PDF reports that group absences by subject lecture.
+- [x] Persist administrator-managed subjects, teachers, rooms, classes, and time slots in the managed SQL database.
+- [x] Add date-range filters to attendance history visualizations.
+- [x] Filter full-day absence PDF reports by a selected date range.
+- [x] Add secure edit and delete controls for saved subjects, teachers, rooms, and schedule information.
+- [x] Add per-class and per-subject filters to attendance history graphs.
+- [x] Add per-class and per-subject filters to full-day absence PDF reports.
+- [x] Add teacher and class selection controls sourced from the administrator subject catalog.
+- [x] Document the Bluetooth device-tag, enrollment, and discovered-device matching workflow.
+- [x] Add student registration and enrollment-number/password login with hashed credentials.
+- [x] Add administrator password login and a post-login password-change flow.
+- [x] Resolve discovered Bluetooth device tags to registered student names during the first attendance scan.
+- [x] Show each student’s generated Bluetooth device tag after login and guide configuration in Android Settings.
+- [x] Add explicit device-name setup limitations and confirmation feedback to the student flow.
+- [x] Add student-profile Bluetooth troubleshooting with visible and copyable device tag.
+- [x] Show a persistent student dashboard reminder until device-name setup is confirmed.
+- [x] Add a student Bluetooth self-test with accurate device-name verification guidance.
+- [x] Show the last faculty-scan verification state on the student profile.
+- [x] Display a real-time faculty scan roster with detected device tags and named student matches.
+- [x] Add loading animation and success/error toast feedback to the student Bluetooth self-test.
+- [x] Separate unmatched discovered Bluetooth devices in the faculty scan review.
+- [x] Add faculty manual linking of an unmatched device to a student for attendance review.
+- [x] Update the visible developer credit to Vinayraj Kore.
+- [x] Use the supplied ICRE crest as the college logo in the app.
+- [x] Add the supplied ICRE crest to all sign-in and authentication screens.
+- [x] Add the supplied ICRE crest to every generated attendance PDF report header.
+- [x] Add a subtle animated ICRE college-crest welcome experience.
+- [x] Add a reusable branded animated loading treatment for key application loading states.
+- [x] Provide a clear current-backend architecture overview and self-hosting boundary.
+- [x] Create an accessible end-to-end testing path for student and administrator workflows.
+- [x] Provide a focused physical Android test procedure for Bluetooth attendance discovery and matching.
+- [ ] Create a PDF report covering free deployment, architecture, technical flow, and implementation languages.
+- [x] Diagnose and repair the Android Gradle build failure reported during APK generation.
+- [x] Restore college-logo visibility in the Android build and visible app branding.
+- [x] Restart and verify the development server after the reported preview outage.
+- [ ] Obtain the exact remote Gradle error and apply a deterministic Android build repair.
+- [x] Perform a final local Android native build audit and remove remaining deterministic blockers.

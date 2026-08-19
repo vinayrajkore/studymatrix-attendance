@@ -1,0 +1,10 @@
+{
+  "entry": "main.typ",
+  "metadata": {
+    "author": "Vinayraj Kore",
+    "subtitle": "Technical Architecture, Deployment, and Free-Tier Hosting Report",
+    "title": "StudyMatrix Attendance"
+  },
+  "mode": "report",
+  "theme": "report-theme.typ"
+}
