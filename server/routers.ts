@@ -79,6 +79,7 @@ export const appRouter = router({
       student: await db.getStudentProfile(ctx.user.id),
       faculty: await db.getFacultyProfile(ctx.user.id),
     })),
+    myStudentProfile: protectedProcedure.query(async ({ ctx }) => db.getStudentProfile(ctx.user.id)),
     registerStudent: protectedProcedure.input(z.object({
       fullName: z.string().min(3).max(255),
       enrollmentNumber: z.string().min(4).max(64),
@@ -225,6 +226,35 @@ export const appRouter = router({
       const rows = await db.listRecordsForSession(input.sessionId);
       const csv = ["studentId,status,method,markedAt", ...rows.map((row) => `${row.studentId},${row.status},${row.method},${row.markedAt.toISOString()}`)].join("\n");
       return { filename: `attendance-session-${input.sessionId}.csv`, content: csv };
+    }),
+  }),
+  students: router({
+    listByClass: facultyProcedure.input(z.object({ classDivision: z.string().min(1).max(128) })).query(({ input }) => db.listStudentsByClass(input.classDivision)),
+    getDetail: facultyProcedure.input(z.object({ studentUserId: z.number().int().positive() })).query(async ({ input }) => {
+      const [profile, attendance] = await Promise.all([
+        db.getStudentProfileById(input.studentUserId),
+        db.getStudentAttendanceByUserId(input.studentUserId),
+      ]);
+      if (!profile) throw new TRPCError({ code: "NOT_FOUND", message: "Student profile not found" });
+      return { profile, attendance };
+    }),
+    updateProfile: facultyProcedure.input(z.object({
+      studentUserId: z.number().int().positive(),
+      fullName: z.string().min(2).max(255),
+      mobileNumber: z.string().min(8).max(32),
+      parentMobileNumber: z.string().min(8).max(32),
+      classDivision: z.string().min(1).max(128),
+      rollNumber: z.string().min(1).max(64),
+    })).mutation(async ({ input }) => {
+      await db.updateStudentProfileById(input.studentUserId, input);
+      return { saved: true };
+    }),
+    updateAttendance: facultyProcedure.input(z.object({
+      recordId: z.number().int().positive(),
+      status: z.enum(["present", "absent", "manual"]),
+    })).mutation(async ({ input }) => {
+      await db.updateAttendanceRecordStatus(input.recordId, input.status);
+      return { saved: true };
     }),
   }),
 });

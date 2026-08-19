@@ -50,6 +50,8 @@ type Screen =
   | "composeNotice"
   | "manageInfo"
   | "manageFaculty"
+  | "adminStudents"
+  | "studentDetail"
   | "profile";
 type Role = "student" | "admin";
 type ScanState = "idle" | "discovering" | "complete" | "error";
@@ -98,8 +100,8 @@ function Button({ label, icon, onPress, tone = "navy" }: { label: string; icon?:
   );
 }
 
-function RoundIcon({ name, background = "#EAF0F8", color = colors.navy }: { name: IconName; background?: string; color?: string }) {
-  return <View style={[styles.roundIcon, { backgroundColor: background, shadowColor: color, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 2 }]}><MaterialIcons name={name} size={22} color={color} /></View>;
+function RoundIcon({ name, background = "#EAF0F8", color = colors.navy, size = 22 }: { name: IconName; background?: string; color?: string; size?: number }) {
+  return <View style={[styles.roundIcon, { backgroundColor: background, shadowColor: color, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 2 }]}><MaterialIcons name={name} size={size} color={color} /></View>;
 }
 
 function AnimatedCollegeCrest({ size = 88 }: { size?: number }) {
@@ -138,6 +140,7 @@ export default function HomeScreen() {
   const [localAdminPassword, setLocalAdminPassword] = useState("");
   const [localAdminUserId, setLocalAdminUserId] = useState<number | null>(null);
   const [matchedStudents, setMatchedStudents] = useState<{ fullName: string; enrollmentNumber: string; deviceTag: string }[]>([]);
+  const [selectedStudentUserId, setSelectedStudentUserId] = useState<number | null>(null);
   const bluetoothMatch = trpc.attendance.matchBluetoothDevices.useMutation();
   const closeSession = trpc.attendance.closeSession.useMutation();
 
@@ -163,7 +166,7 @@ export default function HomeScreen() {
   const mainScreen = role === "student" ? "studentHome" : "adminHome";
   const titles: Record<Exclude<Screen, "welcome" | "studentHome" | "adminHome">, string> = {
     studentRecords: "Attendance log", code: "Attendance code", notices: "Notices", startSession: "Start attendance",
-    liveSession: "Live attendance", adminRecords: "Attendance records", composeNotice: "New notice", manageInfo: "Manage information", manageFaculty: "Manage faculty accounts", profile: "Profile", studentLogin: "Student login", studentRegister: "Student registration", deviceSetup: "Device tag setup", adminLogin: "Administrator login", changeAdminPassword: "Change administrator password",
+    liveSession: "Live attendance", adminRecords: "Attendance records", composeNotice: "New notice", manageInfo: "Manage information", manageFaculty: "Manage faculty accounts", adminStudents: "Student management", studentDetail: "Student detail", profile: "Profile", studentLogin: "Student login", studentRegister: "Student registration", deviceSetup: "Device tag setup", adminLogin: "Administrator login", changeAdminPassword: "Change administrator password",
   };
   const heading = screen === "studentHome" ? "Good morning" : screen === "adminHome" ? "Faculty desk" : titles[screen as keyof typeof titles];
   const subheading = screen === "studentHome" ? accountName || studentName : screen === "adminHome" ? accountName || "StudyMatrix Administrator" : "StudyMatrix Attendance";
@@ -240,9 +243,11 @@ export default function HomeScreen() {
       {screen === "composeNotice" ? <ComposeNotice sent={noticeSent} onSend={() => { setNoticeSent(true); if (Platform.OS !== "web") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }} /> : null}
       {screen === "manageInfo" ? <ManageInfo accountName={accountName} /> : null}
       {screen === "manageFaculty" ? <ManageFaculty /> : null}
+      {screen === "adminStudents" ? <AdminStudents onViewStudent={(uid) => { setSelectedStudentUserId(uid); open("studentDetail"); }} /> : null}
+      {screen === "studentDetail" && selectedStudentUserId ? <StudentDetail studentUserId={selectedStudentUserId} onBack={() => open("adminStudents")} /> : null}
       {screen === "profile" ? <EnhancedProfile role={role} deviceTagValue={studentDeviceTag} deviceSetupComplete={deviceSetupComplete} deviceVerified={deviceVerified} onTroubleshoot={() => { setDeviceSetupComplete(false); open("deviceSetup"); }} onExit={() => open("welcome")} /> : null}
     </ScrollView>
-    {(["studentHome", "studentRecords", "notices", "adminHome", "adminRecords"] as Screen[]).includes(screen) ? <BottomNav role={role} current={screen} onOpen={open} /> : null}
+    {(["studentHome", "studentRecords", "notices", "adminHome", "adminRecords", "adminStudents", "studentDetail", "composeNotice"] as Screen[]).includes(screen) ? <BottomNav role={role} current={screen} onOpen={open} /> : null}
     {menuOpen ? <SideMenu role={role} current={screen} accountName={accountName} onClose={() => setMenuOpen(false)} onOpen={(next) => { setMenuOpen(false); open(next); }} /> : null}
   </ScreenContainer>;
 }
@@ -339,8 +344,8 @@ function Header({ title, subtitle, isRoot, onBack, onProfile, onMenu }: { title:
 
 function SideMenu({ role, current, onOpen, onClose, accountName }: { role: Role; current: Screen; onOpen: (screen: Screen) => void; onClose: () => void; accountName: string }) {
   const student = role === "student";
-  const items = student ? [{ label: "Dashboard", icon: "home" as IconName, screen: "studentHome" as Screen }, { label: "Attendance history", icon: "insights" as IconName, screen: "studentRecords" as Screen }, { label: "Notices", icon: "campaign" as IconName, screen: "notices" as Screen }] : [{ label: "Faculty desk", icon: "home" as IconName, screen: "adminHome" as Screen }, { label: "Start attendance", icon: "play-circle-outline" as IconName, screen: "startSession" as Screen }, { label: "Manage information", icon: "edit-note" as IconName, screen: "manageInfo" as Screen }, { label: "Attendance reports", icon: "assessment" as IconName, screen: "adminRecords" as Screen }, { label: "New notice", icon: "campaign" as IconName, screen: "composeNotice" as Screen }];
-  return <View style={styles.drawerOverlay}><Pressable onPress={onClose} style={styles.drawerScrim} /><View style={styles.drawer}><View style={styles.drawerHeader}><Pressable onPress={() => onOpen("profile")} style={({ pressed }) => [styles.drawerProfile, pressed && styles.pressed]}><View style={styles.drawerAvatar}><Text style={styles.drawerAvatarText}>{student ? (accountName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() || "ST") : (accountName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() || "AD")}</Text></View><View style={styles.flex}><Text style={styles.drawerName}>{student ? (accountName || studentName) : (accountName || "Administrator")}</Text><Text style={styles.drawerRole}>{student ? "Student" : "Faculty administrator"}</Text></View><MaterialIcons name="chevron-right" size={22} color="#D1DBE8" /></Pressable><Pressable onPress={onClose} style={({ pressed }) => [styles.drawerClose, pressed && styles.pressed]}><MaterialIcons name="close" size={20} color={colors.navy} /></Pressable></View><View style={styles.drawerList}>{items.map((item) => <Pressable key={item.label} onPress={() => onOpen(item.screen)} style={({ pressed }) => [styles.drawerItem, current === item.screen && styles.drawerItemActive, pressed && styles.pressed]}><MaterialIcons name={item.icon} size={21} color={current === item.screen ? colors.gold : colors.navy} /><Text style={[styles.drawerItemText, current === item.screen && styles.drawerItemTextActive]}>{item.label}</Text></Pressable>)}</View><View style={styles.drawerFooter}><MaterialIcons name="info-outline" size={17} color={colors.muted} /><Text style={styles.drawerFooterText}>StudyMatrix Attendance · v1.0</Text></View></View></View>;
+  const items = student ? [{ label: "Dashboard", icon: "home" as IconName, screen: "studentHome" as Screen }, { label: "Attendance history", icon: "insights" as IconName, screen: "studentRecords" as Screen }, { label: "Notices", icon: "campaign" as IconName, screen: "notices" as Screen }] : [{ label: "Faculty desk", icon: "home" as IconName, screen: "adminHome" as Screen }, { label: "Start attendance", icon: "play-circle-outline" as IconName, screen: "startSession" as Screen }, { label: "Students", icon: "people" as IconName, screen: "adminStudents" as Screen }, { label: "Manage information", icon: "edit-note" as IconName, screen: "manageInfo" as Screen }, { label: "Attendance reports", icon: "assessment" as IconName, screen: "adminRecords" as Screen }, { label: "New notice", icon: "campaign" as IconName, screen: "composeNotice" as Screen }];
+  return <View style={styles.drawerOverlay}><Pressable onPress={onClose} style={styles.drawerScrim} /><View style={styles.drawer}><View style={styles.drawerHeader}><Pressable onPress={() => onOpen("profile")} style={({ pressed }) => [styles.drawerProfile, pressed && styles.pressed]}><View style={styles.drawerAvatar}><Text style={styles.drawerAvatarText}>{student ? (accountName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() || "ST") : (accountName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() || "AD")}</Text></View><View style={styles.flex}><Text style={styles.drawerName}>{student ? (accountName || studentName) : (accountName || "Administrator")}</Text><Text style={styles.drawerRole}>{student ? "Student" : "Faculty administrator"}</Text></View><MaterialIcons name="chevron-right" size={22} color="#D1DBE8" /></Pressable><Pressable onPress={onClose} style={({ pressed }) => [styles.drawerClose, pressed && styles.pressed]}><MaterialIcons name="close" size={20} color={colors.navy} /></Pressable></View><View style={styles.drawerList}>{items.map((item) => <Pressable key={item.label} onPress={() => onOpen(item.screen)} style={({ pressed }) => [styles.drawerItem, (current === item.screen || (item.screen === "adminStudents" && current === "studentDetail")) && styles.drawerItemActive, pressed && styles.pressed]}><MaterialIcons name={item.icon} size={21} color={(current === item.screen || (item.screen === "adminStudents" && current === "studentDetail")) ? colors.gold : colors.navy} /><Text style={[styles.drawerItemText, (current === item.screen || (item.screen === "adminStudents" && current === "studentDetail")) && styles.drawerItemTextActive]}>{item.label}</Text></Pressable>)}</View><View style={styles.drawerFooter}><MaterialIcons name="info-outline" size={17} color={colors.muted} /><Text style={styles.drawerFooterText}>StudyMatrix Attendance · v1.0</Text></View></View></View>;
 }
 
 function StudentHome({ onOpen, accountName, classDivision, deviceSetupComplete, testState, testMessage, onFixDeviceName, onTestBluetooth }: { onOpen: (screen: Screen) => void; accountName: string; classDivision: string; deviceSetupComplete: boolean; testState: "idle" | "testing" | "success" | "error"; testMessage: string | null; onFixDeviceName: () => void; onTestBluetooth: () => void }) {
@@ -545,11 +550,188 @@ function RecordLine({ name, description, isPresent }: { name: string; descriptio
 
 function ComposeNotice({ sent, onSend }: { sent: boolean; onSend: () => void }) { const [title, setTitle] = useState(""); const [message, setMessage] = useState(""); return <><Field label="Audience" value="TY Computer A · 32 students" /><Text style={styles.fieldLabel}>Title</Text><TextInput value={title} onChangeText={setTitle} style={styles.input} placeholder="Notice title" placeholderTextColor="#98A2B3" /><Text style={styles.fieldLabel}>Message</Text><TextInput value={message} onChangeText={setMessage} style={[styles.input, styles.messageInput]} placeholder="Write a clear, concise notice for students." placeholderTextColor="#98A2B3" multiline textAlignVertical="top" />{sent ? <Callout tone="success" text="Notice is ready for delivery to the selected class." /> : <Button label="Send notice" icon="send" tone="maroon" onPress={onSend} />}</>; }
 
-function EnhancedProfile({ role, deviceTagValue, deviceSetupComplete, deviceVerified, onTroubleshoot, onExit }: { role: Role; deviceTagValue: string; deviceSetupComplete: boolean; deviceVerified: boolean; onTroubleshoot: () => void; onExit: () => void }) { const student = role === "student"; const [copied, setCopied] = useState(false); const copyTag = () => { void Clipboard.setStringAsync(deviceTagValue).then(() => setCopied(true), () => Alert.alert("Copy unavailable", "Please select and copy the displayed device name manually.")); }; return <><View style={styles.profile}><View style={styles.profileAvatar}><Text style={styles.profileInitials}>{student ? "AP" : "MK"}</Text></View><Text style={styles.profileName}>{student ? studentName : "StudyMatrix Administrator"}</Text><Text style={styles.profileRole}>{student ? "Student" : "Faculty Admin"} · Computer Department</Text></View>{student ? <><View style={[styles.verificationBadge, { backgroundColor: deviceVerified ? "#E7F5EE" : "#FFF7E7" }]}><MaterialIcons name={deviceVerified ? "verified" : "schedule"} size={18} color={deviceVerified ? colors.green : "#9A6C0D"} /><Text style={[styles.verificationText, { color: deviceVerified ? colors.green : "#9A6C0D" }]}>{deviceVerified ? "Verified during the last faculty scan" : "Not yet verified by a faculty scan"}</Text></View><Title>Bluetooth attendance troubleshooting</Title><View style={styles.troubleshootCard}><RoundIcon name="bluetooth-searching" background="#EAF0F8" color={colors.navy} /><View style={styles.flex}><Text style={styles.promptTitle}>Required device name</Text><Text style={styles.deviceTagInline}>{deviceTagValue}</Text><Text style={styles.smallMuted}>{deviceSetupComplete ? "Setup marked complete. If detection fails, verify the phone name and discoverability." : "Setup is incomplete. Automatic Bluetooth attendance may not find this phone."}</Text></View></View>{copied ? <Callout tone="success" text="Bluetooth device name copied. Paste it exactly in Android Device name Settings." /> : null}<Button label="Copy Bluetooth name" icon="content-copy" tone="outline" onPress={copyTag} /><View style={styles.gap} /><Button label={deviceSetupComplete ? "Recheck device name setup" : "Set Bluetooth device name"} icon="settings" tone="gold" onPress={onTroubleshoot} /><Title>Attendance profile</Title><View style={styles.historyCard}><View style={styles.historyHeading}><View><Text style={styles.subjectName}>Subject attendance graph</Text><Text style={styles.smallMuted}>Percentage across current semester lectures.</Text></View><Text style={styles.historyLegend}>ON TRACK</Text></View><View style={styles.chart}>{studentSubjects.map((subject) => { const percentage = Math.round((subject.attended / subject.total) * 100); return <View key={subject.code} style={styles.chartColumn}><View style={styles.chartTrack}><View style={[styles.chartBar, { height: `${percentage}%`, backgroundColor: subject.color }]} /></View><Text style={styles.chartLabel}>{subject.code.slice(-3)}</Text></View>; })}</View></View></> : <View style={styles.profileItem}><RoundIcon name="bluetooth" background="#E7F5EE" color={colors.green} /><View style={styles.flex}><Text style={styles.profileItemTitle}>Nearby-device access</Text><Text style={styles.smallMuted}>Permission is requested when faculty starts a scan.</Text></View></View>}<View style={styles.profileItem}><RoundIcon name="info-outline" /><View style={styles.flex}><Text style={styles.profileItemTitle}>About StudyMatrix Attendance</Text><Text style={styles.smallMuted}>Version 1.0 · Developed by Vinayraj Kore</Text></View></View><Button label="Return to role selection" icon="logout" tone="outline" onPress={onExit} /></>; }
+function EnhancedProfile({ role, deviceTagValue, deviceSetupComplete, deviceVerified, onTroubleshoot, onExit }: { role: Role; deviceTagValue: string; deviceSetupComplete: boolean; deviceVerified: boolean; onTroubleshoot: () => void; onExit: () => void }) {
+  const student = role === "student";
+  const [copied, setCopied] = useState(false);
+  const studentProfileQuery = trpc.profiles.myStudentProfile.useQuery(undefined, { enabled: student, retry: false });
+  const sp = studentProfileQuery.data;
+  const copyTag = () => { void Clipboard.setStringAsync(deviceTagValue).then(() => setCopied(true), () => Alert.alert("Copy unavailable", "Please select and copy the displayed device name manually.")); };
+  const initials = (sp?.fullName ?? accountName).split(" ").map((w: string) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "ST";
+  return <>
+    <View style={styles.profile}>
+      <View style={styles.profileAvatar}><Text style={styles.profileInitials}>{initials}</Text></View>
+      <Text style={styles.profileName}>{sp?.fullName ?? accountName ?? "Student"}</Text>
+      <Text style={styles.profileRole}>{student ? `${sp?.classDivision ?? ""} · Computer Dept` : "Faculty Admin · Computer Dept"}</Text>
+    </View>
+    {student && sp ? (
+      <View style={styles.profileInfoGrid}>
+        <ProfileInfoItem icon="badge" label="Enrollment No." value={sp.enrollmentNumber} />
+        <ProfileInfoItem icon="format-list-numbered" label="Roll Number" value={sp.rollNumber} />
+        <ProfileInfoItem icon="school" label="Class" value={sp.classDivision} />
+        <ProfileInfoItem icon="phone" label="Mobile" value={sp.mobileNumber} />
+        <ProfileInfoItem icon="family-restroom" label="Parent Mobile" value={sp.parentMobileNumber} />
+        <ProfileInfoItem icon={sp.deviceVerified ? "verified" : "schedule"} label="Device Status" value={sp.deviceVerified ? "Verified" : "Not verified"} />
+      </View>
+    ) : null}
+    {student ? <>
+      <View style={[styles.verificationBadge, { backgroundColor: deviceVerified ? "#E7F5EE" : "#FFF7E7" }]}>
+        <MaterialIcons name={deviceVerified ? "verified" : "schedule"} size={18} color={deviceVerified ? colors.green : "#9A6C0D"} />
+        <Text style={[styles.verificationText, { color: deviceVerified ? colors.green : "#9A6C0D" }]}>{deviceVerified ? "Verified during the last faculty scan" : "Not yet verified by a faculty scan"}</Text>
+      </View>
+      <Title>Bluetooth attendance troubleshooting</Title>
+      <View style={styles.troubleshootCard}>
+        <RoundIcon name="bluetooth-searching" background="#EAF0F8" color={colors.navy} />
+        <View style={styles.flex}><Text style={styles.promptTitle}>Required device name</Text><Text style={styles.deviceTagInline}>{deviceTagValue}</Text><Text style={styles.smallMuted}>{deviceSetupComplete ? "Setup marked complete. If detection fails, verify the phone name and discoverability." : "Setup is incomplete. Automatic Bluetooth attendance may not find this phone."}</Text></View>
+      </View>
+      {copied ? <Callout tone="success" text="Bluetooth device name copied. Paste it exactly in Android Device name Settings." /> : null}
+      <Button label="Copy Bluetooth name" icon="content-copy" tone="outline" onPress={copyTag} />
+      <View style={styles.gap} />
+      <Button label={deviceSetupComplete ? "Recheck device name setup" : "Set Bluetooth device name"} icon="settings" tone="gold" onPress={onTroubleshoot} />
+      <Title>Attendance profile</Title>
+      <View style={styles.historyCard}><View style={styles.historyHeading}><View><Text style={styles.subjectName}>Subject attendance graph</Text><Text style={styles.smallMuted}>Percentage across current semester lectures.</Text></View><Text style={styles.historyLegend}>ON TRACK</Text></View><View style={styles.chart}>{studentSubjects.map((subject) => { const percentage = Math.round((subject.attended / subject.total) * 100); return <View key={subject.code} style={styles.chartColumn}><View style={styles.chartTrack}><View style={[styles.chartBar, { height: `${percentage}%`, backgroundColor: subject.color }]} /></View><Text style={styles.chartLabel}>{subject.code.slice(-3)}</Text></View>; })}</View></View>
+    </> : <View style={styles.profileItem}><RoundIcon name="bluetooth" background="#E7F5EE" color={colors.green} /><View style={styles.flex}><Text style={styles.profileItemTitle}>Nearby-device access</Text><Text style={styles.smallMuted}>Permission is requested when faculty starts a scan.</Text></View></View>}
+    <View style={styles.profileItem}><RoundIcon name="info-outline" /><View style={styles.flex}><Text style={styles.profileItemTitle}>About StudyMatrix Attendance</Text><Text style={styles.smallMuted}>Version 1.0 · Developed by Vinayraj Kore</Text></View></View>
+    <Button label="Return to role selection" icon="logout" tone="outline" onPress={onExit} />
+  </>;
+}
+function ProfileInfoItem({ icon, label, value }: { icon: IconName; label: string; value: string }) { return <View style={styles.profileInfoItem}><RoundIcon name={icon} background="#EAF0F8" color={colors.navy} size={20} /><View style={styles.flex}><Text style={styles.profileInfoLabel}>{label}</Text><Text style={styles.profileInfoValue}>{value}</Text></View></View>; }
 
 function Profile({ role, onExit }: { role: Role; onExit: () => void }) { return <EnhancedProfile role={role} deviceTagValue={deviceTag} deviceSetupComplete deviceVerified={false} onTroubleshoot={() => {}} onExit={onExit} />; }
 
-function BottomNav({ role, current, onOpen }: { role: Role; current: Screen; onOpen: (screen: Screen) => void }) { const items = role === "student" ? [{ label: "Home", icon: "home" as IconName, screen: "studentHome" as Screen }, { label: "Records", icon: "calendar-month" as IconName, screen: "studentRecords" as Screen }, { label: "Notices", icon: "notifications-none" as IconName, screen: "notices" as Screen }] : [{ label: "Home", icon: "home" as IconName, screen: "adminHome" as Screen }, { label: "Records", icon: "assessment" as IconName, screen: "adminRecords" as Screen }, { label: "Notice", icon: "campaign" as IconName, screen: "composeNotice" as Screen }]; return <View style={styles.bottom}>{items.map((item) => { const active = current === item.screen; return <Pressable key={item.label} onPress={() => onOpen(item.screen)} style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}>{active ? <View style={styles.navActiveIndicator} /> : <View style={{ width: 5, height: 5 }} />}<MaterialIcons name={item.icon} size={23} color={active ? colors.navy : colors.muted} /><Text style={[styles.navText, active && { color: colors.navy, fontWeight: "900" }]}>{item.label}</Text></Pressable>; })}</View>; }
+// ─── Admin Student Management ────────────────────────────────────────────────
+const CLASS_YEARS = ["FY", "SY", "TY"] as const;
+
+function AdminStudents({ onViewStudent }: { onViewStudent: (studentUserId: number) => void }) {
+  const [selectedClass, setSelectedClass] = useState<string>("FY");
+  const [search, setSearch] = useState("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const listQuery = trpc.students.listByClass.useQuery({ classDivision: selectedClass }, { retry: false });
+  const students = listQuery.data ?? [];
+  const filtered = students
+    .filter((s) => !search.trim() || s.fullName.toLowerCase().includes(search.toLowerCase()) || s.enrollmentNumber.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => sortDir === "asc" ? a.percentage - b.percentage : b.percentage - a.percentage);
+  return <>
+    <View style={styles.classTabRow}>
+      {CLASS_YEARS.map((cls) => <Pressable key={cls} onPress={() => setSelectedClass(cls)} style={({ pressed }) => [styles.classTab, selectedClass === cls && styles.classTabActive, pressed && styles.pressed]}><Text style={[styles.classTabText, selectedClass === cls && styles.classTabTextActive]}>{cls}</Text></Pressable>)}
+    </View>
+    <View style={styles.studentSearchRow}>
+      <View style={styles.studentSearchBox}>
+        <MaterialIcons name="search" size={20} color={colors.muted} />
+        <TextInput value={search} onChangeText={setSearch} style={styles.studentSearchInput} placeholder="Search name or enrollment…" placeholderTextColor="#98A2B3" />
+        {search ? <Pressable onPress={() => setSearch("")}><MaterialIcons name="close" size={18} color={colors.muted} /></Pressable> : null}
+      </View>
+      <Pressable onPress={() => setSortDir((d) => d === "asc" ? "desc" : "asc")} style={({ pressed }) => [styles.sortBtn, pressed && styles.pressed]}>
+        <MaterialIcons name={sortDir === "asc" ? "arrow-upward" : "arrow-downward"} size={16} color={colors.navy} />
+        <Text style={styles.sortBtnText}>{sortDir === "asc" ? "Low→High" : "High→Low"}</Text>
+      </Pressable>
+    </View>
+    {listQuery.isLoading ? <ActivityIndicator color={colors.navy} style={{ marginTop: 24 }} /> : filtered.length === 0 ? <Text style={[styles.smallMuted, { textAlign: "center", marginTop: 24 }]}>{search ? "No students match your search." : `No students registered in ${selectedClass}.`}</Text> : filtered.map((student) => {
+      const pct = student.percentage;
+      const color = pct >= 75 ? colors.green : pct >= 60 ? "#D97706" : colors.maroon;
+      const initials = student.fullName.split(" ").map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+      return <Pressable key={student.userId} onPress={() => onViewStudent(student.userId)} style={({ pressed }) => [styles.studentCard, pressed && styles.pressed]}>
+        <View style={[styles.avatar, { backgroundColor: "#EAF0F8" }]}><Text style={[styles.avatarText, { color: colors.navy }]}>{initials}</Text></View>
+        <View style={styles.flex}>
+          <Text style={styles.subjectName}>{student.fullName}</Text>
+          <Text style={styles.smallMuted}>Roll {student.rollNumber} · {student.enrollmentNumber}</Text>
+        </View>
+        <View style={[styles.pctBadge, { backgroundColor: pct >= 75 ? "#E7F5EE" : pct >= 60 ? "#FFF7E7" : "#FCE8E6" }]}>
+          <Text style={[styles.pctText, { color }]}>{pct}%</Text>
+          <Text style={[styles.pctSub, { color }]}>{student.presentCount}P / {student.absentCount}A</Text>
+        </View>
+      </Pressable>;
+    })}
+  </>;
+}
+
+function StudentDetail({ studentUserId, onBack }: { studentUserId: number; onBack: () => void }) {
+  const detailQuery = trpc.students.getDetail.useQuery({ studentUserId }, { retry: false });
+  const updateProfile = trpc.students.updateProfile.useMutation();
+  const updateAttendance = trpc.students.updateAttendance.useMutation();
+  const profile = detailQuery.data?.profile;
+  const attendance = detailQuery.data?.attendance ?? [];
+  const [editing, setEditing] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [mobileNumber, setMobileNumber] = useState("");
+  const [parentMobileNumber, setParentMobileNumber] = useState("");
+  const [classDivision, setClassDivision] = useState("");
+  const [rollNumber, setRollNumber] = useState("");
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  const startEdit = () => { if (!profile) return; setFullName(profile.fullName); setMobileNumber(profile.mobileNumber); setParentMobileNumber(profile.parentMobileNumber); setClassDivision(profile.classDivision); setRollNumber(profile.rollNumber); setEditing(true); setSaveMsg(null); };
+  const saveProfile = () => { updateProfile.mutate({ studentUserId, fullName, mobileNumber, parentMobileNumber, classDivision, rollNumber }, { onSuccess: () => { setSaveMsg("Profile updated."); setEditing(false); void detailQuery.refetch(); }, onError: (e) => setSaveMsg(e.message || "Save failed.") }); };
+  const toggleRecord = (recordId: number, currentStatus: string) => {
+    const next = currentStatus === "present" || currentStatus === "manual" ? "absent" : "present";
+    updateAttendance.mutate({ recordId, status: next }, { onSuccess: () => { void detailQuery.refetch(); }, onError: (e) => Alert.alert("Error", e.message || "Unable to update attendance.") });
+  };
+
+  if (detailQuery.isLoading) return <ActivityIndicator color={colors.navy} style={{ marginTop: 40 }} />;
+  if (!profile) return <Text style={styles.smallMuted}>Student not found.</Text>;
+
+  const total = attendance.length;
+  const present = attendance.filter((r) => r.status === "present" || r.status === "manual").length;
+  const pct = total > 0 ? Math.round((present / total) * 100) : 100;
+  const initials = profile.fullName.split(" ").map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+
+  return <>
+    <View style={styles.profile}>
+      <View style={styles.profileAvatar}><Text style={styles.profileInitials}>{initials}</Text></View>
+      <Text style={styles.profileName}>{profile.fullName}</Text>
+      <Text style={styles.profileRole}>{profile.classDivision} · Roll {profile.rollNumber}</Text>
+      <View style={[styles.pctBadge, { backgroundColor: pct >= 75 ? "#E7F5EE" : pct >= 60 ? "#FFF7E7" : "#FCE8E6", marginTop: 12, paddingHorizontal: 18, paddingVertical: 8 }]}>
+        <Text style={[styles.pctText, { fontSize: 22, color: pct >= 75 ? colors.green : pct >= 60 ? "#D97706" : colors.maroon }]}>{pct}%</Text>
+        <Text style={[styles.pctSub, { color: pct >= 75 ? colors.green : pct >= 60 ? "#D97706" : colors.maroon }]}>{present} present / {total - present} absent</Text>
+      </View>
+    </View>
+    {editing ? (
+      <View style={{ marginBottom: 16 }}>
+        <Text style={styles.fieldLabel}>Full name</Text>
+        <TextInput value={fullName} onChangeText={setFullName} style={styles.input} />
+        <View style={styles.twoFields}>
+          <View style={styles.flex}><Text style={styles.fieldLabel}>Roll number</Text><TextInput value={rollNumber} onChangeText={setRollNumber} style={styles.input} /></View>
+          <View style={styles.flex}><Text style={styles.fieldLabel}>Class</Text><TextInput value={classDivision} onChangeText={setClassDivision} style={styles.input} placeholder="FY / SY / TY" placeholderTextColor="#98A2B3" /></View>
+        </View>
+        <Text style={styles.fieldLabel}>Mobile number</Text>
+        <TextInput value={mobileNumber} onChangeText={setMobileNumber} style={styles.input} keyboardType="phone-pad" />
+        <Text style={styles.fieldLabel}>Parent mobile number</Text>
+        <TextInput value={parentMobileNumber} onChangeText={setParentMobileNumber} style={styles.input} keyboardType="phone-pad" />
+        {saveMsg ? <Callout tone={saveMsg.includes("updated") ? "success" : "error"} text={saveMsg} /> : null}
+        <Button label={updateProfile.isPending ? "Saving…" : "Save changes"} icon="save" tone="maroon" onPress={saveProfile} />
+        <Pressable onPress={() => { setEditing(false); setSaveMsg(null); }} style={({ pressed }) => [styles.cancelEdit, pressed && styles.pressed]}><Text style={styles.cancelEditText}>Cancel edit</Text></Pressable>
+      </View>
+    ) : (
+      <>
+        <View style={styles.profileInfoGrid}>
+          <ProfileInfoItem icon="badge" label="Enrollment No." value={profile.enrollmentNumber} />
+          <ProfileInfoItem icon="format-list-numbered" label="Roll Number" value={profile.rollNumber} />
+          <ProfileInfoItem icon="school" label="Class" value={profile.classDivision} />
+          <ProfileInfoItem icon="phone" label="Mobile" value={profile.mobileNumber} />
+          <ProfileInfoItem icon="family-restroom" label="Parent Mobile" value={profile.parentMobileNumber} />
+          <ProfileInfoItem icon={profile.deviceVerified ? "verified" : "schedule"} label="Device" value={profile.deviceVerified ? "Verified" : "Unverified"} />
+        </View>
+        {saveMsg ? <Callout tone="success" text={saveMsg} /> : null}
+        <Button label="Edit student info" icon="edit" tone="gold" onPress={startEdit} />
+      </>
+    )}
+    <Title>Attendance records ({total})</Title>
+    {attendance.length === 0 ? <Text style={[styles.smallMuted, { textAlign: "center", marginTop: 12 }]}>No attendance records yet.</Text> : attendance.map((record) => {
+      const isPresent = record.status === "present" || record.status === "manual";
+      return <Pressable key={record.recordId} onPress={() => toggleRecord(record.recordId, record.status)} style={({ pressed }) => [styles.recordLine, pressed && styles.pressed]}>
+        <View style={[styles.stateIcon, { backgroundColor: isPresent ? "#E7F5EE" : "#FCE8E6" }]}>
+          <MaterialIcons name={isPresent ? "check" : "close"} size={19} color={isPresent ? colors.green : "#B42318"} />
+        </View>
+        <View style={styles.flex}>
+          <Text style={styles.subjectName}>{record.subject}</Text>
+          <Text style={styles.smallMuted}>{record.date} · {record.startTime} · {record.subjectCode}</Text>
+        </View>
+        <Text style={[styles.presence, { color: isPresent ? colors.green : "#B42318" }]}>{isPresent ? "Present" : "Absent"}</Text>
+      </Pressable>;
+    })}
+    <View style={styles.gap} />
+  </>;
+}
+
+function BottomNav({ role, current, onOpen }: { role: Role; current: Screen; onOpen: (screen: Screen) => void }) { const items = role === "student" ? [{ label: "Home", icon: "home" as IconName, screen: "studentHome" as Screen }, { label: "Records", icon: "calendar-month" as IconName, screen: "studentRecords" as Screen }, { label: "Notices", icon: "notifications-none" as IconName, screen: "notices" as Screen }] : [{ label: "Home", icon: "home" as IconName, screen: "adminHome" as Screen }, { label: "Students", icon: "people" as IconName, screen: "adminStudents" as Screen }, { label: "Records", icon: "assessment" as IconName, screen: "adminRecords" as Screen }, { label: "Notice", icon: "campaign" as IconName, screen: "composeNotice" as Screen }]; return <View style={styles.bottom}>{items.map((item) => { const active = current === item.screen || (item.screen === "adminStudents" && current === "studentDetail"); return <Pressable key={item.label} onPress={() => onOpen(item.screen)} style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}>{active ? <View style={styles.navActiveIndicator} /> : <View style={{ width: 5, height: 5 }} />}<MaterialIcons name={item.icon} size={23} color={active ? colors.navy : colors.muted} /><Text style={[styles.navText, active && { color: colors.navy, fontWeight: "900" }]}>{item.label}</Text></Pressable>; })}</View>; }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 }, pressed: { opacity: 0.74, transform: [{ scale: 0.98 }] },
@@ -582,5 +764,9 @@ const styles = StyleSheet.create({
   setupLabel: { color: colors.muted, textAlign: "center", fontSize: 11, fontWeight: "900", letterSpacing: 0.5 }, deviceTagCard: { marginTop: 9, backgroundColor: colors.navy, borderRadius: 16, minHeight: 70, alignItems: "center", justifyContent: "center", gap: 7, flexDirection: "row", paddingHorizontal: 14 }, deviceTagText: { color: "#FFFFFF", fontSize: 19, fontWeight: "900", letterSpacing: 1.2 }, setupCopy: { color: colors.muted, fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 16 }, setupNotice: { marginTop: 14, marginBottom: 14, padding: 12, flexDirection: "row", gap: 9, borderRadius: 13, backgroundColor: "#EAF0F8" }, setupNoticeText: { flex: 1, color: colors.navy, fontSize: 12, lineHeight: 17, fontWeight: "700" },
   deviceReminder: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#FFF7E7", borderWidth: 1, borderColor: "#E8C274", borderRadius: 17, padding: 14, marginBottom: 13 }, troubleshootCard: { flexDirection: "row", alignItems: "flex-start", gap: 11, backgroundColor: "#FFFFFF", borderRadius: 17, borderWidth: 1, borderColor: colors.border, padding: 14 }, deviceTagInline: { color: colors.navy, fontSize: 16, fontWeight: "900", letterSpacing: 0.8, marginTop: 4 },
   verificationBadge: { alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, marginBottom: 12 }, verificationText: { fontSize: 12, fontWeight: "900" },
+  classTabRow: { flexDirection: "row", gap: 10, marginBottom: 16 }, classTab: { flex: 1, height: 44, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" }, classTabActive: { backgroundColor: colors.navy, borderColor: colors.navy }, classTabText: { color: colors.navy, fontWeight: "900", fontSize: 14 }, classTabTextActive: { color: "#FFFFFF" },
+  studentSearchRow: { flexDirection: "row", gap: 8, marginBottom: 14, alignItems: "center" }, studentSearchBox: { flex: 1, height: 44, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: "#FFFFFF", paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 7 }, studentSearchInput: { flex: 1, fontSize: 13, color: colors.ink }, sortBtn: { flexDirection: "row", gap: 4, alignItems: "center", backgroundColor: "#EAF0F8", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 10 }, sortBtnText: { color: colors.navy, fontSize: 11, fontWeight: "900" },
+  studentCard: { flexDirection: "row", alignItems: "center", gap: 11, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 13, marginBottom: 10, shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }, pctBadge: { alignItems: "center", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, minWidth: 56 }, pctText: { fontWeight: "900", fontSize: 16 }, pctSub: { fontSize: 9, fontWeight: "900", marginTop: 1 },
+  profileInfoGrid: { gap: 8, marginBottom: 16 }, profileInfoItem: { flexDirection: "row", alignItems: "center", gap: 11, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 12 }, profileInfoLabel: { color: colors.muted, fontSize: 11, fontWeight: "700" }, profileInfoValue: { color: colors.ink, fontSize: 13, fontWeight: "900", marginTop: 1 },
   welcomeBrandBlock: { alignItems: "center" }, crestAnimation: { alignItems: "center", justifyContent: "center", marginBottom: 12 }, crestImage: { width: "100%", height: "100%" }, brandedLoader: { alignItems: "center", justifyContent: "center", gap: 10, padding: 22 }, brandedLoaderCompact: { flexDirection: "row", padding: 12 }, brandedLoaderText: { color: colors.navy, fontSize: 13, fontWeight: "900", textAlign: "center" }, brandedLoaderTextCompact: { textAlign: "left" }, authLoadingOverlay: { position: "absolute", inset: 0, backgroundColor: "rgba(248,246,241,0.95)", alignItems: "center", justifyContent: "center" },
 });

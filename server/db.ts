@@ -495,3 +495,107 @@ export async function getAbsenceSmsDetails(sessionId: number) {
       eq(attendanceRecords.status, "absent")
     ));
 }
+
+// ─── Student Management (Admin) ──────────────────────────────────────────────
+
+export async function listStudentsByClass(classDivision: string) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select({
+    userId: studentProfiles.userId,
+    fullName: studentProfiles.fullName,
+    enrollmentNumber: studentProfiles.enrollmentNumber,
+    rollNumber: studentProfiles.rollNumber,
+    mobileNumber: studentProfiles.mobileNumber,
+    parentMobileNumber: studentProfiles.parentMobileNumber,
+    classDivision: studentProfiles.classDivision,
+    deviceTag: studentProfiles.deviceTag,
+    deviceVerified: studentProfiles.deviceVerified,
+    status: attendanceRecords.status,
+  }).from(studentProfiles)
+    .leftJoin(attendanceRecords, eq(attendanceRecords.studentId, studentProfiles.userId))
+    .where(eq(studentProfiles.classDivision, classDivision));
+
+  // Aggregate per student
+  const map = new Map<number, {
+    userId: number; fullName: string; enrollmentNumber: string; rollNumber: string;
+    mobileNumber: string; parentMobileNumber: string; classDivision: string;
+    deviceTag: string; deviceVerified: boolean; presentCount: number; absentCount: number; percentage: number;
+  }>();
+
+  for (const row of rows) {
+    const existing = map.get(row.userId);
+    if (!existing) {
+      map.set(row.userId, {
+        userId: row.userId, fullName: row.fullName, enrollmentNumber: row.enrollmentNumber,
+        rollNumber: row.rollNumber, mobileNumber: row.mobileNumber, parentMobileNumber: row.parentMobileNumber,
+        classDivision: row.classDivision, deviceTag: row.deviceTag, deviceVerified: row.deviceVerified,
+        presentCount: row.status === "present" || row.status === "manual" ? 1 : 0,
+        absentCount: row.status === "absent" ? 1 : 0,
+        percentage: 0,
+      });
+    } else {
+      if (row.status === "present" || row.status === "manual") existing.presentCount++;
+      else if (row.status === "absent") existing.absentCount++;
+    }
+  }
+
+  const result = [...map.values()].map((student) => {
+    const total = student.presentCount + student.absentCount;
+    return { ...student, percentage: total > 0 ? Math.round((student.presentCount / total) * 100) : 100 };
+  });
+  return result;
+}
+
+export async function getStudentProfileById(studentUserId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(studentProfiles).where(eq(studentProfiles.userId, studentUserId)).limit(1);
+  return result[0];
+}
+
+export async function getStudentAttendanceByUserId(studentUserId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    recordId: attendanceRecords.id,
+    sessionId: attendanceRecords.sessionId,
+    date: attendanceSessions.sessionDate,
+    subject: subjects.name,
+    subjectCode: subjects.code,
+    startTime: subjects.startTime,
+    status: attendanceRecords.status,
+    method: attendanceRecords.method,
+    markedAt: attendanceRecords.markedAt,
+  }).from(attendanceRecords)
+    .innerJoin(attendanceSessions, eq(attendanceRecords.sessionId, attendanceSessions.id))
+    .innerJoin(subjects, eq(attendanceSessions.subjectId, subjects.id))
+    .where(eq(attendanceRecords.studentId, studentUserId))
+    .orderBy(desc(attendanceSessions.sessionDate));
+}
+
+export async function updateStudentProfileById(studentUserId: number, data: {
+  fullName: string;
+  mobileNumber: string;
+  parentMobileNumber: string;
+  classDivision: string;
+  rollNumber: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(studentProfiles).set({
+    fullName: data.fullName.trim(),
+    mobileNumber: data.mobileNumber.trim(),
+    parentMobileNumber: data.parentMobileNumber.trim(),
+    classDivision: data.classDivision.trim(),
+    rollNumber: data.rollNumber.trim(),
+    updatedAt: new Date(),
+  }).where(eq(studentProfiles.userId, studentUserId));
+}
+
+export async function updateAttendanceRecordStatus(recordId: number, status: "present" | "absent" | "manual") {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(attendanceRecords).set({ status, method: "manual", markedAt: new Date() }).where(eq(attendanceRecords.id, recordId));
+}
+
