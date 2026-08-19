@@ -13,10 +13,11 @@
         "image": "latest"
       },
       "env": {
-        "NODE_ENV": "development"
+        "NODE_ENV": "development",
+        "EXPO_PUBLIC_API_BASE_URL": "https://studymatrix-attendance.onrender.com"
       }
     },
-    "preview": {
+    "preview-student": {
       "distribution": "internal",
       "android": {
         "buildType": "apk",
@@ -24,7 +25,22 @@
         "image": "latest"
       },
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "EXPO_PUBLIC_API_BASE_URL": "https://studymatrix-attendance.onrender.com",
+        "APP_VARIANT": "student"
+      }
+    },
+    "preview-faculty": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease",
+        "image": "latest"
+      },
+      "env": {
+        "NODE_ENV": "production",
+        "EXPO_PUBLIC_API_BASE_URL": "https://studymatrix-attendance.onrender.com",
+        "APP_VARIANT": "faculty"
       }
     },
     "production": {
@@ -34,7 +50,8 @@
         "image": "latest"
       },
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "EXPO_PUBLIC_API_BASE_URL": "https://studymatrix-attendance.onrender.com"
       }
     }
   },

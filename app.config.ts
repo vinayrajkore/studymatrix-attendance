@@ -26,15 +26,17 @@ const bundleId =
 const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
 const schemeFromBundleId = `manus${timestamp}`;
 
+const isFaculty = process.env.APP_VARIANT === 'faculty';
+
 const env = {
   // App branding - update these values directly (do not use env vars)
-  appName: "StudyMatrix Attendance",
+  appName: isFaculty ? "StudyMatrix Faculty" : "StudyMatrix Attendance",
   appSlug: "studymatrix-attendance",
   // Use the bundled supplied ICRE crest for the launcher, splash, and platform branding.
   logoUrl: "",
   scheme: schemeFromBundleId,
-  iosBundleId: bundleId,
-  androidPackage: bundleId,
+  iosBundleId: isFaculty ? bundleId + ".faculty" : bundleId,
+  androidPackage: isFaculty ? bundleId + ".faculty" : bundleId,
 };
 
 const config: ExpoConfig = {
@@ -45,7 +47,7 @@ const config: ExpoConfig = {
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
-  newArchEnabled: false,
+  newArchEnabled: true,
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
@@ -55,10 +57,8 @@ const config: ExpoConfig = {
   },
   android: {
     adaptiveIcon: {
-      backgroundColor: "#E6F4FE",
-      foregroundImage: "./assets/images/android-icon-foreground.png",
-      backgroundImage: "./assets/images/android-icon-background.png",
-      monochromeImage: "./assets/images/android-icon-monochrome.png",
+      backgroundColor: "#ffffff",
+      foregroundImage: "./assets/images/icon.png",
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
@@ -69,7 +69,7 @@ const config: ExpoConfig = {
       "BLUETOOTH_CONNECT",
       "BLUETOOTH_ADVERTISE",
       "ACCESS_FINE_LOCATION",
-      "SEND_SMS",
+      ...(isFaculty ? ["SEND_SMS"] : []),
     ],
     intentFilters: [
       {
@@ -148,6 +148,11 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
     reactCompiler: false,
+  },
+  extra: {
+    eas: {
+      projectId: "d1a02996-2d4f-4dcf-9036-0b00b5d69c6b",
+    },
   },
 };
 
