@@ -179,10 +179,7 @@ export default function HomeScreen() {
       return true;
     };
     
-    const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
-    return () => {
-      subscription.remove();
-    };
+
   }, [screen, menuOpen, role]);
   const enterRole = (nextRole: Role) => { setRole(nextRole); open(nextRole === "student" ? "studentHome" : "adminHome"); };
   const submitCode = () => {
