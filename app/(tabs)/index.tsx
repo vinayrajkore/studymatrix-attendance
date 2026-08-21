@@ -900,13 +900,13 @@ function ProfileInfoItem({ icon, label, value }: { icon: IconName; label: string
 function Profile({ role, onExit }: { role: Role; onExit: () => void }) { return <EnhancedProfile role={role} accountName="" deviceTagValue="" deviceSetupComplete deviceVerified={false} onTroubleshoot={() => {}} onExit={onExit} />; }
 
 // ─── Admin Student Management ────────────────────────────────────────────────
-const CLASS_YEARS = ["FY", "SY", "TY"] as const;
+const CLASS_YEARS = ["All", "FY", "SY", "TY"] as const;
 
 function AdminStudents({ onViewStudent }: { onViewStudent: (studentUserId: number) => void }) {
-  const [selectedClass, setSelectedClass] = useState<string>("FY");
+  const [selectedClass, setSelectedClass] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const listQuery = trpc.students.listByClass.useQuery({ classDivision: selectedClass }, { retry: false });
+  const listQuery = trpc.students.listByClass.useQuery({ classDivision: selectedClass === "All" ? "" : selectedClass }, { retry: false });
   const students = listQuery.data ?? [];
   const filtered = students
     .filter((s) => !search.trim() || s.fullName.toLowerCase().includes(search.toLowerCase()) || s.enrollmentNumber.toLowerCase().includes(search.toLowerCase()))

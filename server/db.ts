@@ -517,7 +517,8 @@ export async function getAbsenceSmsDetails(sessionId: number) {
 export async function listStudentsByClass(classDivision: string) {
   const db = await getDb();
   if (!db) return [];
-  const rows = await db.select({
+
+  const baseQuery = db.select({
     userId: studentProfiles.userId,
     fullName: studentProfiles.fullName,
     enrollmentNumber: studentProfiles.enrollmentNumber,
@@ -529,8 +530,11 @@ export async function listStudentsByClass(classDivision: string) {
     deviceVerified: studentProfiles.deviceVerified,
     status: attendanceRecords.status,
   }).from(studentProfiles)
-    .leftJoin(attendanceRecords, eq(attendanceRecords.studentId, studentProfiles.userId))
-    .where(like(studentProfiles.classDivision, `${classDivision}%`));
+    .leftJoin(attendanceRecords, eq(attendanceRecords.studentId, studentProfiles.userId));
+
+  const rows = classDivision
+    ? await baseQuery.where(like(studentProfiles.classDivision, `${classDivision}%`))
+    : await baseQuery;
 
   // Aggregate per student
   const map = new Map<number, {
