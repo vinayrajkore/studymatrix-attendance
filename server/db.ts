@@ -424,7 +424,7 @@ export async function registerLocalStudent(input: {
   if (!userId) throw new Error("Unable to create student account");
   await db.insert(studentProfiles).values({ userId, fullName: input.fullName.trim(), enrollmentNumber, rollNumber: input.rollNumber.trim(), mobileNumber: input.mobileNumber.trim(), parentMobileNumber: input.parentMobileNumber.trim(), classDivision: input.classDivision.trim(), deviceTag: input.deviceTag });
   await db.insert(localCredentials).values({ userId, identifier: enrollmentNumber, accountType: "student", passwordHash: await hashLocalPassword(input.password) });
-  return { userId, fullName: input.fullName.trim(), enrollmentNumber, classDivision: input.classDivision.trim(), deviceTag: input.deviceTag };
+  return { userId, openId, fullName: input.fullName.trim(), enrollmentNumber, classDivision: input.classDivision.trim(), deviceTag: input.deviceTag };
 }
 
 export async function registerLocalFaculty(input: {
@@ -470,11 +470,13 @@ export async function loginWithLocalCredentials(identifier: string, password: st
   if (!credential || !(await verifyLocalPassword(password, credential.passwordHash))) throw new Error("Invalid ID or password");
   if (credential.accountType === "student") {
     const student = await getStudentProfile(credential.userId);
-    if (!student) throw new Error("Student profile could not be loaded");
-    return { accountType: "student" as const, userId: credential.userId, fullName: student.fullName, classDivision: student.classDivision, deviceTag: student.deviceTag, deviceVerified: student.deviceVerified, mustChangePassword: false };
+    const userRow = (await db.select().from(users).where(eq(users.id, credential.userId)).limit(1))[0];
+    if (!student || !userRow) throw new Error("Student profile could not be loaded");
+    return { accountType: "student" as const, userId: credential.userId, openId: userRow.openId, fullName: student.fullName, classDivision: student.classDivision, deviceTag: student.deviceTag, deviceVerified: student.deviceVerified, mustChangePassword: false };
   }
   const faculty = await getFacultyProfile(credential.userId);
-  return { accountType: "admin" as const, userId: credential.userId, fullName: faculty?.fullName ?? "ICRE Administrator", classDivision: null, deviceTag: null, deviceVerified: false, mustChangePassword: credential.mustChangePassword };
+  const userRow = (await db.select().from(users).where(eq(users.id, credential.userId)).limit(1))[0];
+  return { accountType: "admin" as const, userId: credential.userId, openId: userRow?.openId || "", fullName: faculty?.fullName ?? "ICRE Administrator", classDivision: null, deviceTag: null, deviceVerified: false, mustChangePassword: credential.mustChangePassword };
 }
 
 export async function changeLocalAdminPassword(userId: number, currentPassword: string, nextPassword: string) {

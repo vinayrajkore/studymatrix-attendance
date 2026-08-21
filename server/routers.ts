@@ -6,6 +6,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
+import { sdk } from "./_core/sdk";
 
 const facultyProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   const profile = await db.getFacultyProfile(ctx.user.id);
@@ -48,14 +49,28 @@ export const appRouter = router({
         parentMobileNumber: z.string().min(8).max(32),
         classDivision: z.string().min(1).max(128),
         password: z.string().min(8).max(128),
-      })).mutation(async ({ input }) => {
+      })).mutation(async ({ input, ctx }) => {
         const deviceTag = createDeviceTag(input.enrollmentNumber);
-        return db.registerLocalStudent({ ...input, deviceTag });
+        const result = await db.registerLocalStudent({ ...input, deviceTag });
+        const sessionToken = await sdk.createSessionToken(result.openId, { name: result.fullName });
+        if (ctx.res) {
+          const cookieOptions = getSessionCookieOptions(ctx.req);
+          ctx.res.cookie(COOKIE_NAME, sessionToken, cookieOptions);
+        }
+        return { ...result, sessionToken };
       }),
       login: publicProcedure.input(z.object({
         identifier: z.string().min(1).max(128),
         password: z.string().min(1).max(128),
-      })).mutation(({ input }) => db.loginWithLocalCredentials(input.identifier, input.password)),
+      })).mutation(async ({ input, ctx }) => {
+        const user = await db.loginWithLocalCredentials(input.identifier, input.password);
+        const sessionToken = await sdk.createSessionToken(user.openId, { name: user.fullName });
+        if (ctx.res) {
+          const cookieOptions = getSessionCookieOptions(ctx.req);
+          ctx.res.cookie(COOKIE_NAME, sessionToken, cookieOptions);
+        }
+        return { ...user, sessionToken };
+      }),
       changeAdminPassword: publicProcedure.input(z.object({
         userId: z.number().int().positive(),
         currentPassword: z.string().min(1).max(128),
