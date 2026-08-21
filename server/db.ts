@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   attendanceRecords,
@@ -382,17 +382,25 @@ export async function matchStudentsByDeviceTags(classDivision: string, deviceTag
   return matches.map((student) => ({ ...student, deviceVerified: true }));
 }
 
-function hashLocalPassword(password: string) {
+async function hashLocalPassword(password: string) {
   const salt = crypto.randomBytes(16).toString("hex");
-  const digest = crypto.scryptSync(password, salt, 64).toString("hex");
+  const digest = await new Promise<string>((resolve, reject) =>
+    crypto.scrypt(password, salt, 64, { N: 16384 }, (err, key) =>
+      err ? reject(err) : resolve(key.toString("hex"))
+    )
+  );
   return `${salt}:${digest}`;
 }
 
-function verifyLocalPassword(password: string, storedHash: string) {
+async function verifyLocalPassword(password: string, storedHash: string) {
   const [salt, expected] = storedHash.split(":");
   if (!salt || !expected) return false;
-  const actual = crypto.scryptSync(password, salt, 64).toString("hex");
-  return crypto.timingSafeEqual(Buffer.from(actual, "hex"), Buffer.from(expected, "hex"));
+  const actual = await new Promise<string>((resolve, reject) =>
+    crypto.scrypt(password, salt, 64, { N: 16384 }, (err, key) =>
+      err ? reject(err) : resolve(key.toString("hex"))
+    )
+  );
+  try { return crypto.timingSafeEqual(Buffer.from(actual, "hex"), Buffer.from(expected, "hex")); } catch { return false; }
 }
 
 export async function registerLocalStudent(input: {
@@ -415,7 +423,7 @@ export async function registerLocalStudent(input: {
   const userId = userResult[0]?.id;
   if (!userId) throw new Error("Unable to create student account");
   await db.insert(studentProfiles).values({ userId, fullName: input.fullName.trim(), enrollmentNumber, rollNumber: input.rollNumber.trim(), mobileNumber: input.mobileNumber.trim(), parentMobileNumber: input.parentMobileNumber.trim(), classDivision: input.classDivision.trim(), deviceTag: input.deviceTag });
-  await db.insert(localCredentials).values({ userId, identifier: enrollmentNumber, accountType: "student", passwordHash: hashLocalPassword(input.password) });
+  await db.insert(localCredentials).values({ userId, identifier: enrollmentNumber, accountType: "student", passwordHash: await hashLocalPassword(input.password) });
   return { userId, fullName: input.fullName.trim(), enrollmentNumber, classDivision: input.classDivision.trim(), deviceTag: input.deviceTag };
 }
 
@@ -435,7 +443,7 @@ export async function registerLocalFaculty(input: {
   const userId = userResult[0]?.id;
   if (!userId) throw new Error("Unable to create faculty account");
   await db.insert(facultyProfiles).values({ userId, fullName: input.fullName.trim(), accessRole: input.accessRole, active: true });
-  await db.insert(localCredentials).values({ userId, identifier, accountType: "admin", passwordHash: hashLocalPassword(input.password) });
+  await db.insert(localCredentials).values({ userId, identifier, accountType: "admin", passwordHash: await hashLocalPassword(input.password) });
   return { userId, fullName: input.fullName.trim(), facultyId: identifier, accessRole: input.accessRole };
 }
 
@@ -448,7 +456,7 @@ async function ensureLocalAdministrator() {
   const userId = userResult[0]?.id;
   if (!userId) throw new Error("Unable to create administrator account");
   await db.insert(facultyProfiles).values({ userId, fullName: "ICRE Administrator", accessRole: "superadmin", active: true });
-  await db.insert(localCredentials).values({ userId, identifier: "ADMIN@ICRE", accountType: "admin", passwordHash: hashLocalPassword("icre@2026"), mustChangePassword: true });
+  await db.insert(localCredentials).values({ userId, identifier: "ADMIN@ICRE", accountType: "admin", passwordHash: await hashLocalPassword("icre@2026"), mustChangePassword: true });
   const created = await db.select().from(localCredentials).where(eq(localCredentials.identifier, "ADMIN@ICRE")).limit(1);
   if (!created[0]) throw new Error("Unable to initialize administrator credentials");
   return created[0];
@@ -459,7 +467,7 @@ export async function loginWithLocalCredentials(identifier: string, password: st
   if (!db) throw new Error("Database is not available");
   const normalizedIdentifier = identifier.trim().toUpperCase();
   const credential = normalizedIdentifier === "ADMIN@ICRE" ? await ensureLocalAdministrator() : (await db.select().from(localCredentials).where(eq(localCredentials.identifier, normalizedIdentifier)).limit(1))[0];
-  if (!credential || !verifyLocalPassword(password, credential.passwordHash)) throw new Error("Invalid ID or password");
+  if (!credential || !(await verifyLocalPassword(password, credential.passwordHash))) throw new Error("Invalid ID or password");
   if (credential.accountType === "student") {
     const student = await getStudentProfile(credential.userId);
     if (!student) throw new Error("Student profile could not be loaded");
@@ -473,8 +481,16 @@ export async function changeLocalAdminPassword(userId: number, currentPassword: 
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const credential = (await db.select().from(localCredentials).where(and(eq(localCredentials.userId, userId), eq(localCredentials.accountType, "admin"))).limit(1))[0];
-  if (!credential || !verifyLocalPassword(currentPassword, credential.passwordHash)) throw new Error("Current administrator password is incorrect");
-  await db.update(localCredentials).set({ passwordHash: hashLocalPassword(nextPassword), mustChangePassword: false, updatedAt: new Date() }).where(eq(localCredentials.id, credential.id));
+  if (!credential || !(await verifyLocalPassword(currentPassword, credential.passwordHash))) throw new Error("Current administrator password is incorrect");
+  await db.update(localCredentials).set({ passwordHash: await hashLocalPassword(nextPassword), mustChangePassword: false, updatedAt: new Date() }).where(eq(localCredentials.id, credential.id));
+}
+
+export async function verifyLocalAdminPassword(userId: number, password: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const credential = (await db.select().from(localCredentials).where(and(eq(localCredentials.userId, userId), eq(localCredentials.accountType, "admin"))).limit(1))[0];
+  if (!credential || !(await verifyLocalPassword(password, credential.passwordHash))) throw new Error("Administrator password is incorrect");
+  return true;
 }
 
 export async function getAbsenceSmsDetails(sessionId: number) {
@@ -514,7 +530,7 @@ export async function listStudentsByClass(classDivision: string) {
     status: attendanceRecords.status,
   }).from(studentProfiles)
     .leftJoin(attendanceRecords, eq(attendanceRecords.studentId, studentProfiles.userId))
-    .where(eq(studentProfiles.classDivision, classDivision));
+    .where(like(studentProfiles.classDivision, `${classDivision}%`));
 
   // Aggregate per student
   const map = new Map<number, {
@@ -593,9 +609,44 @@ export async function updateStudentProfileById(studentUserId: number, data: {
   }).where(eq(studentProfiles.userId, studentUserId));
 }
 
+export async function deleteStudentById(studentUserId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.delete(attendanceRecords).where(eq(attendanceRecords.studentId, studentUserId));
+  await db.delete(studentProfiles).where(eq(studentProfiles.userId, studentUserId));
+  await db.delete(localCredentials).where(eq(localCredentials.userId, studentUserId));
+  await db.delete(users).where(eq(users.id, studentUserId));
+}
+
 export async function updateAttendanceRecordStatus(recordId: number, status: "present" | "absent" | "manual") {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   await db.update(attendanceRecords).set({ status, method: "manual", markedAt: new Date() }).where(eq(attendanceRecords.id, recordId));
 }
-
+export async function createSubject(data: {
+  name: string;
+  code: string;
+  department: string;
+  classDivision: string;
+  teacherName: string;
+  room: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  assignedAdminId: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.insert(subjects).values({
+    name: data.name.trim(),
+    code: data.code.trim(),
+    department: data.department.trim() || "Computer Department",
+    classDivision: data.classDivision.trim(),
+    teacherName: data.teacherName.trim(),
+    room: data.room.trim(),
+    dayOfWeek: data.dayOfWeek,
+    startTime: data.startTime.trim(),
+    endTime: data.endTime.trim(),
+    assignedAdminId: data.assignedAdminId,
+  });
+}

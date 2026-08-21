@@ -57,8 +57,8 @@ const config: ExpoConfig = {
   },
   android: {
     adaptiveIcon: {
-      backgroundColor: "#ffffff",
-      foregroundImage: "./assets/images/icon.png",
+      backgroundColor: "#0F172A",
+      foregroundImage: "./assets/images/icon-padded.png",
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
@@ -127,11 +127,11 @@ const config: ExpoConfig = {
       "expo-splash-screen",
       {
         image: "./assets/images/splash-icon.png",
-        imageWidth: 200,
+        imageWidth: 100,
         resizeMode: "contain",
-        backgroundColor: "#ffffff",
+        backgroundColor: "#0F172A",
         dark: {
-          backgroundColor: "#000000",
+          backgroundColor: "#0F172A",
         },
       },
     ],

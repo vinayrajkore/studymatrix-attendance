@@ -15,6 +15,8 @@ import {
   initialWindowMetrics,
 } from "react-native-safe-area-context";
 import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
+import Animated, { FadeIn, FadeOut, ZoomIn, SlideInDown } from "react-native-reanimated";
+import { View, Text, Image, StyleSheet } from "react-native";
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
@@ -27,12 +29,47 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
+function AnimatedBootSplash({ onComplete }: { onComplete: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onComplete, 2500);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+
+  return (
+    <Animated.View
+      exiting={FadeOut.duration(800)}
+      style={[
+        StyleSheet.absoluteFill,
+        { backgroundColor: "#0F172A", alignItems: "center", justifyContent: "center", zIndex: 99999 }
+      ]}
+    >
+      <Animated.Image
+        source={require("@/assets/images/college-logo.png")}
+        entering={ZoomIn.duration(800)}
+        style={{ width: 140, height: 140, resizeMode: "contain" }}
+      />
+      <Animated.View
+        entering={FadeIn.delay(800).duration(800)}
+        style={{ position: "absolute", bottom: 36, alignItems: "center" }}
+      >
+        <Text style={{ color: "#64748B", fontSize: 7, letterSpacing: 3, fontWeight: "700" }}>
+          DESIGNED WITH CREATIVITY BY
+        </Text>
+        <Text style={{ color: "#C89B3C", fontSize: 9, letterSpacing: 2, fontWeight: "900", marginTop: 2 }}>
+          VINAYRAJ KORE
+        </Text>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
 export default function RootLayout() {
   const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
 
   const [insets, setInsets] = useState<EdgeInsets>(initialInsets);
   const [frame, setFrame] = useState<Rect>(initialFrame);
+  const [isSplashVisible, setSplashVisible] = useState(true);
 
   // Initialize Manus runtime for cookie injection from parent container
   useEffect(() => {
@@ -98,6 +135,7 @@ export default function RootLayout() {
           <StatusBar style="auto" />
         </QueryClientProvider>
       </trpc.Provider>
+      {isSplashVisible && <AnimatedBootSplash onComplete={() => setSplashVisible(false)} />}
     </GestureHandlerRootView>
   );
 

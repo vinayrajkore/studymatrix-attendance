@@ -249,6 +249,14 @@ export const appRouter = router({
       await db.updateStudentProfileById(input.studentUserId, input);
       return { saved: true };
     }),
+    deleteProfile: facultyProcedure.input(z.object({
+      studentUserId: z.number().int().positive(),
+      adminPassword: z.string().min(1).max(128),
+    })).mutation(async ({ ctx, input }) => {
+      await db.verifyLocalAdminPassword(ctx.user.id, input.adminPassword);
+      await db.deleteStudentById(input.studentUserId);
+      return { deleted: true };
+    }),
     updateAttendance: facultyProcedure.input(z.object({
       recordId: z.number().int().positive(),
       status: z.enum(["present", "absent", "manual"]),
