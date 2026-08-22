@@ -244,7 +244,7 @@ export const appRouter = router({
     }),
   }),
   students: router({
-    listByClass: facultyProcedure.input(z.object({ classDivision: z.string().min(1).max(128) })).query(({ input }) => db.listStudentsByClass(input.classDivision)),
+    listByClass: facultyProcedure.input(z.object({ classDivision: z.string().max(128) })).query(({ input }) => db.listStudentsByClass(input.classDivision)),
     getDetail: facultyProcedure.input(z.object({ studentUserId: z.number().int().positive() })).query(async ({ input }) => {
       const [profile, attendance] = await Promise.all([
         db.getStudentProfileById(input.studentUserId),
